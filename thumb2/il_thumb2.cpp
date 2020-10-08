@@ -92,6 +92,17 @@ static uint32_t GetRegisterSize(decomp_result* instr, size_t operand)
 	return 4;
 }
 
+static ExprId ReadRotateOperand(LowLevelILFunction& il, decomp_result* instr, size_t operand, size_t size = 4)
+{
+	bool is_expanded_encoding = instr->instrSize == 32;
+	uint32_t _rotate = instr->fields[FIELD_rotate];
+
+	if (is_expanded_encoding && _rotate) {
+		return il.RotateRight(size, ReadILOperand(il, instr, operand, 4), il.Const(4, _rotate << 3));
+	}
+	return ReadILOperand(il, instr, operand, size);
+}
+
 static ExprId ReadShiftedOperand(LowLevelILFunction& il, decomp_result* instr, size_t operand, size_t size = 4)
 {
 	uint32_t shift_t = instr->fields[FIELD_shift_t];
@@ -908,6 +919,14 @@ bool GetLowLevelILForThumbInstruction(Architecture* arch, LowLevelILFunction& il
 		il.AddInstruction(WriteArithOperand(il, instr, il.Sub(4, ReadArithOperand(il, instr, 0),
 			ReadArithOperand(il, instr, 1), ifThenBlock ? 0 : IL_FLAGWRITE_ALL)));
 		break;
+	case armv7::ARMV7_SXTB:
+		il.AddInstruction(WriteILOperand(il, instr, 0, il.SignExtend(4,
+						ReadRotateOperand(il, instr, 1, 1))));
+		break;
+	case armv7::ARMV7_SXTH:
+		il.AddInstruction(WriteILOperand(il, instr, 0, il.SignExtend(4,
+						ReadRotateOperand(il, instr, 1, 2))));
+		break;
 	case armv7::ARMV7_TBB:
 		il.AddInstruction(il.Jump(il.Add(4, il.ConstPointer(4, instr->pc), il.Mult(4, il.Const(4, 2),
 			il.ZeroExtend(4, il.Load(1, GetMemoryAddress(il, instr, 0, 4, false)))))));
@@ -921,6 +940,14 @@ bool GetLowLevelILForThumbInstruction(Architecture* arch, LowLevelILFunction& il
 		break;
 	case armv7::ARMV7_TST:
 		il.AddInstruction(il.And(4, ReadILOperand(il, instr, 0), ReadILOperand(il, instr, 1), IL_FLAGWRITE_ALL));
+		break;
+	case armv7::ARMV7_UXTB:
+		il.AddInstruction(WriteILOperand(il, instr, 0, il.ZeroExtend(4,
+						ReadRotateOperand(il, instr, 1, 1))));
+		break;
+	case armv7::ARMV7_UXTH:
+		il.AddInstruction(WriteILOperand(il, instr, 0, il.ZeroExtend(4,
+						ReadRotateOperand(il, instr, 1, 2))));
 		break;
 	case armv7::ARMV7_UDF:
 		il.AddInstruction(il.Trap(ReadILOperand(il, instr, 0)));
